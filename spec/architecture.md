@@ -4,6 +4,8 @@
 
 This document defines the technical architecture for the Support Ticket Management System. It translates [requirements.md](./requirements.md) into a layered design that is simple, maintainable, and appropriate for a senior software engineer assignment.
 
+**Companion specifications:** [data-model.md](./data-model.md), [api-contract.md](./api-contract.md), [state-machine.md](./state-machine.md), [ui-flow.md](./ui-flow.md), [test-strategy.md](./test-strategy.md)
+
 **Design principles:**
 
 - Thin controllers, rich services, dumb repositories
@@ -129,7 +131,7 @@ Each layer has a single direction of dependency: **Controller → Service → Re
 
 | Controller | Endpoints |
 |------------|-----------|
-| `TicketController` | `POST /api/tickets`, `GET /api/tickets`, `GET /api/tickets/{id}`, `PUT /api/tickets/{id}`, `PATCH /api/tickets/{id}/status` |
+| `TicketController` | `POST /api/tickets`, `GET /api/tickets`, `GET /api/tickets/{id}`, `PATCH /api/tickets/{id}`, `PATCH /api/tickets/{id}/status` |
 | `CommentController` | `POST /api/tickets/{id}/comments` (nested under ticket for REST clarity) |
 
 **Does not:**
@@ -226,7 +228,7 @@ Each layer has a single direction of dependency: **Controller → Service → Re
 | DTO | Fields | Used by |
 |-----|--------|---------|
 | `CreateTicketRequest` | `title`, `description`, `priority`, `assignee?` | `POST /api/tickets` |
-| `UpdateTicketRequest` | `title`, `description`, `priority`, `assignee?` | `PUT /api/tickets/{id}` |
+| `UpdateTicketRequest` | `title`, `description`, `priority`, `assignee?` | `PATCH /api/tickets/{id}` |
 | `TransitionStatusRequest` | `status` (target) | `PATCH /api/tickets/{id}/status` |
 | `CreateCommentRequest` | `body`, `author` | `POST /api/tickets/{id}/comments` |
 
@@ -243,13 +245,15 @@ Each layer has a single direction of dependency: **Controller → Service → Re
 
 | Field | Constraints |
 |-------|-------------|
-| `title` | `@NotBlank`, `@Size(max = 200)` |
-| `description` | `@NotBlank`, `@Size(max = 5000)` |
+| `title` | `@NotBlank`, `@Size(min = 3, max = 120)` |
+| `description` | `@NotBlank`, `@Size(min = 5, max = 5000)` |
 | `priority` | `@NotNull`, valid enum |
-| `assignee` | `@Size(max = 100)` when present |
-| `body` | `@NotBlank`, `@Size(max = 5000)` |
-| `author` | `@NotBlank`, `@Size(max = 100)` |
+| `assignee` | `@Size(max = 120)` when present |
+| `body` | `@NotBlank`, `@Size(min = 1, max = 2000)` |
+| `author` | `@NotBlank`, `@Size(min = 1, max = 120)` |
 | `status` (transition) | `@NotNull`, valid enum |
+
+See [data-model.md](./data-model.md) and [api-contract.md](./api-contract.md) for canonical field definitions.
 
 **Does not:**
 
@@ -512,7 +516,7 @@ sequenceDiagram
 | `POST` | `/api/tickets` | `CreateTicketRequest` | `TicketDetailResponse` | 201 |
 | `GET` | `/api/tickets` | — | `TicketSummaryResponse[]` | 200 |
 | `GET` | `/api/tickets/{id}` | — | `TicketDetailResponse` | 200 |
-| `PUT` | `/api/tickets/{id}` | `UpdateTicketRequest` | `TicketDetailResponse` | 200 |
+| `PATCH` | `/api/tickets/{id}` | `UpdateTicketRequest` | `TicketDetailResponse` | 200 |
 | `PATCH` | `/api/tickets/{id}/status` | `TransitionStatusRequest` | `TicketDetailResponse` | 200 |
 | `POST` | `/api/tickets/{id}/comments` | `CreateCommentRequest` | `CommentResponse` | 201 |
 
@@ -526,7 +530,7 @@ sequenceDiagram
 |---------|----------|
 | Validation | Jakarta Bean Validation on DTOs; enum type safety |
 | Mapping | Static mapper class or manual mapping in service (no heavy mapping framework required) |
-| IDs | `Long` surrogate keys; exposed in API as numbers |
+| IDs | `UUID` primary keys; exposed in API as strings (see [data-model.md](./data-model.md)) |
 | Time | `Instant` in entities/DTOs; ISO-8601 in JSON |
 | Logging | SLF4J; structured context (ticket id) in service layer |
 | Testing | Unit tests for `StatusTransitionValidator` and services; `@WebMvcTest` for controllers; Testcontainers optional for PostgreSQL integration |
@@ -553,3 +557,4 @@ sequenceDiagram
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026-09-11 | Initial architecture |
+| 1.1 | 2026-09-11 | Aligned with data-model, api-contract (UUID, PATCH, field constraints) |
